@@ -8,12 +8,15 @@ import './App.css'
 export default function App() {
   const [tracks, setTracks] = useState([])
   const [artists, setArtists] = useState([])
+  const [genres, setGenres] = useState([])
+  const [popularTracks, setPopularTracks] = useState([])
   const [currentTrack, setCurrentTrack] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedGenreId, setSelectedGenreId] = useState('all')
 
-  // Состояния для плеера
+  // Состояния плеера
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.8)
@@ -22,10 +25,17 @@ export default function App() {
 
   const loadData = async () => {
     try {
-      const tracksData = await api.fetchTracks()
-      const artistsData = await api.fetchArtists()
+      const [tracksData, artistsData, genresData, popularData] = await Promise.all([
+        api.fetchTracks(),
+        api.fetchArtists(),
+        api.fetchGenres().catch(() => []),
+        api.fetchPopularTracks().catch(() => []),
+      ])
+
       setTracks(Array.isArray(tracksData) ? tracksData : [])
       setArtists(Array.isArray(artistsData) ? artistsData : [])
+      setGenres(Array.isArray(genresData) ? genresData : [])
+      setPopularTracks(Array.isArray(popularData) ? popularData : [])
     } catch (e) {
       console.error('Ошибка загрузки данных:', e)
     }
@@ -35,11 +45,18 @@ export default function App() {
     let isMounted = true
     const fetchData = async () => {
       try {
-        const tracksData = await api.fetchTracks()
-        const artistsData = await api.fetchArtists()
+        const [tracksData, artistsData, genresData, popularData] = await Promise.all([
+          api.fetchTracks(),
+          api.fetchArtists(),
+          api.fetchGenres().catch(() => []),
+          api.fetchPopularTracks().catch(() => []),
+        ])
+
         if (isMounted) {
           setTracks(Array.isArray(tracksData) ? tracksData : [])
           setArtists(Array.isArray(artistsData) ? artistsData : [])
+          setGenres(Array.isArray(genresData) ? genresData : [])
+          setPopularTracks(Array.isArray(popularData) ? popularData : [])
         }
       } catch (e) {
         console.error('Ошибка загрузки данных:', e)
@@ -51,7 +68,6 @@ export default function App() {
     }
   }, [])
 
-  // Управление аудио-объектом
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume
@@ -59,25 +75,19 @@ export default function App() {
   }, [volume])
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime)
-    }
+    if (audioRef.current) setCurrentTime(audioRef.current.currentTime)
   }
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration)
-    }
+    if (audioRef.current) setDuration(audioRef.current.duration)
   }
 
   const handleSeek = (value) => {
     setCurrentTime(value)
-    if (audioRef.current) {
-      audioRef.current.currentTime = value
-    }
+    if (audioRef.current) audioRef.current.currentTime = value
   }
 
-  const handlePlay = (track) => {
+  const handlePlay = async (track) => {
     if (currentTrack?.id === track.id) {
       togglePlayPause()
       return
@@ -88,8 +98,17 @@ export default function App() {
       audioRef.current.src = track.urlMusic
       audioRef.current.play().catch((err) => console.log('Ошибка воспроизведения:', err))
     }
+
+    // Фиксируем прослушивание на бэкенде
+    try {
+      await api.playTrack(track.id)
+      const popularData = await api.fetchPopularTracks()
+      setPopularTracks(Array.isArray(popularData) ? popularData : [])
+    } catch (err) {
+      console.error('Не удалось обновить статус play', err)
+    }
   }
-  // Переход к следующему треку
+
   const handleNext = () => {
     if (tracks.length === 0) return
     const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id)
@@ -97,7 +116,6 @@ export default function App() {
     handlePlay(tracks[nextIndex])
   }
 
-  // Переход к предыдущему треку
   const handlePrev = () => {
     if (tracks.length === 0) return
     const currentIndex = tracks.findIndex((t) => t.id === currentTrack?.id)
@@ -129,18 +147,23 @@ export default function App() {
     }
   }
 
-  const filteredTracks = tracks.filter(
-    (t) =>
+  const filteredTracks = tracks.filter((t) => {
+    const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.artistName.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+      t.artistName.toLowerCase().includes(searchQuery.toLowerCase())
+
+    // Проверяем, выбран ли "Все жанры", либо содержится ли выбранный ID в массиве genreIds трека
+    const matchesGenre =
+      selectedGenreId === 'all' || (t.genreIds && t.genreIds.some((id) => String(id) === String(selectedGenreId)))
+
+    return matchesSearch && matchesGenre
+  })
 
   return (
     <div className="ym-container">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} artistsCount={artists.length} />
 
       <main className="ym-main">
-        {/* Верхняя панель поиска как в Яндекс Музыке */}
         <header className="ym-top-header">
           <div className="ym-search-box">
             <span>🔍</span>
@@ -163,14 +186,84 @@ export default function App() {
                 <div className="ym-hero-text">
                   <span>Лента обновлений</span>
                   <h1>Добро пожаловать в Яндекс Музыку</h1>
-                  <p>Слушайте любимые треки, добавляйте новые композиции через удобную форму снизу.</p>
+                  <p>Слушайте треки, выбирайте жанры и добавляйте композиции через форму.</p>
                 </div>
               </section>
 
-              <TrackForm onTrackAdded={handleAddTrack} />
+              <TrackForm genres={genres} artists={artists} onTrackAdded={handleAddTrack} />
+
+              {/* Популярные треки */}
+              {popularTracks.length > 0 && (
+                <div className="ym-section-block" style={{ marginBottom: '24px' }}>
+                  <h2>🔥 Популярное</h2>
+                  <div className="ym-tracks-grid">
+                    {popularTracks.map((track) => (
+                      <div
+                        key={`pop-${track.id}`}
+                        className={`ym-track-card ${currentTrack?.id === track.id ? 'active' : ''}`}
+                        onClick={() => handlePlay(track)}>
+                        <div className="ym-card-cover">
+                          <span>🎵</span>
+                          <button className="ym-card-play-btn">
+                            {currentTrack?.id === track.id && isPlaying ? '⏸' : '▶'}
+                          </button>
+                        </div>
+                        <div className="ym-card-title">{track.title}</div>
+                        <div className="ym-card-artist">{track.artistName}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Фильтр по жанрам с бэкенда */}
+              {genres.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '16px',
+                    overflowX: 'auto',
+                    paddingBottom: '4px',
+                  }}>
+                  <button
+                    onClick={() => setSelectedGenreId('all')}
+                    style={{
+                      background: selectedGenreId === 'all' ? '#ffcc00' : '#1c1c1c',
+                      color: selectedGenreId === 'all' ? '#000' : '#fff',
+                      border: '1px solid #2a2a2a',
+                      padding: '6px 14px',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap',
+                    }}>
+                    Все жанры
+                  </button>
+                  {genres.map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => setSelectedGenreId(g.id.toString())}
+                      style={{
+                        background: selectedGenreId === g.id.toString() ? '#ffcc00' : '#1c1c1c',
+                        color: selectedGenreId === g.id.toString() ? '#000' : '#fff',
+                        border: '1px solid #2a2a2a',
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap',
+                      }}>
+                      {g.genreName}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="ym-section-block">
-                <h2>Новые треки</h2>
+                <h2>Все треки</h2>
                 <div className="ym-tracks-grid">
                   {filteredTracks.map((track) => (
                     <div
