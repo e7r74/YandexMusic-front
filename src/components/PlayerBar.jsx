@@ -22,7 +22,28 @@ export default function PlayerBar({
       <div className="ym-player-left">
         {currentTrack ? (
           <div className="ym-player-track-info">
-            <div className="ym-mini-cover">🎵</div>
+            <div
+              className="ym-mini-cover"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                background: '#222',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              {currentTrack.trackPhotoUrl || currentTrack.artist?.photoUrl ? (
+                <img
+                  src={currentTrack.trackPhotoUrl || currentTrack.artist?.photoUrl}
+                  alt={currentTrack.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span>🎵</span>
+              )}
+            </div>
             <div className="ym-mini-text">
               <div className="player-title">{currentTrack.title}</div>
               <div className="player-artist">{currentTrack.artistName}</div>

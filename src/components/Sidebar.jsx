@@ -1,13 +1,17 @@
-export default function Sidebar({ activeTab, setActiveTab, artistsCount }) {
+export default function Sidebar({ activeTab, setActiveTab, artistsCount, user }) {
+  // Перевіряємо ролі безпечно: підтримуємо як масив рядків, так і масив об'єктів
+  const isAdmin = user?.permissions?.some((p) =>
+    typeof p === 'string' ? p === 'ROLE_ADMIN' : p?.permission === 'ROLE_ADMIN',
+  )
+
+  const isArtist = user?.permissions?.some((p) =>
+    typeof p === 'string' ? p === 'ROLE_ARTIST' : p?.permission === 'ROLE_ARTIST',
+  )
+
   return (
     <aside className="ym-sidebar">
-      <div className="ym-logo-block">
-        <span className="ym-logo-icon">🪩</span>
-        <div className="ym-logo-texts">
-          <span className="ym-logo-sub">Yandex</span>
-          <h2 className="ym-logo">Music</h2>
-        </div>
-      </div>
+      {/* Твій логотип та інші вкладки */}
+
       <nav className="ym-nav">
         <button className={`ym-nav-link ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
           <span className="ym-icon">🏠</span> Главная
@@ -20,6 +24,23 @@ export default function Sidebar({ activeTab, setActiveTab, artistsCount }) {
         <button className={`ym-nav-link ${activeTab === 'wave' ? 'active' : ''}`} onClick={() => setActiveTab('wave')}>
           <span className="ym-icon">🌊</span> Моя волна
         </button>
+        {/* Показуємо адмін-панель тільки для ROLE_ADMIN */}
+        {isAdmin && (
+          <button
+            className={`ym-nav-link ${activeTab === 'admin' ? 'active' : ''}`}
+            onClick={() => setActiveTab('admin')}
+            style={{ color: '#ffcc00' }}>
+            <span className="ym-icon">⚙️</span> Админ-панель
+          </button>
+        )}
+        {/* За бажанням можна додати вкладку додавання треків тільки для ROLE_ARTIST */}
+        {isArtist && (
+          <button
+            className={`ym-nav-link ${activeTab === 'add-track' ? 'active' : ''}`}
+            onClick={() => setActiveTab('add-track')}>
+            <span className="ym-icon">🎙️</span> Добавить трек
+          </button>
+        )}
       </nav>
     </aside>
   )

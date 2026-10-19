@@ -2,22 +2,23 @@ import { useState } from 'react'
 
 export default function TrackForm({ onTrackAdded }) {
   const [newTitle, setNewTitle] = useState('')
+  const [newTrackPhotoUrl, setNewTrackPhotoUrl] = useState('') // <-- Новое поле
   const [newUrl, setNewUrl] = useState('')
   const [newArtistId, setNewArtistId] = useState('')
   const [newArtistName, setNewArtistName] = useState('')
-  const [newDuration] = useState('180')
 
   const handleSubmit = (e) => {
     e.preventDefault()
     onTrackAdded({
       id: 0,
       title: newTitle,
-      durationInSeconds: newDuration,
+      trackPhotoUrl: newTrackPhotoUrl, // <-- Передаем URL фото обложки
       urlMusic: newUrl,
       artistId: Number(newArtistId),
       artistName: newArtistName,
     })
     setNewTitle('')
+    setNewTrackPhotoUrl('')
     setNewUrl('')
     setNewArtistId('')
     setNewArtistName('')
@@ -36,7 +37,13 @@ export default function TrackForm({ onTrackAdded }) {
         />
         <input
           type="text"
-          placeholder="Ссылка на музыку (URL)"
+          placeholder="Ссылка на обложку трека (URL фото)"
+          value={newTrackPhotoUrl}
+          onChange={(e) => setNewTrackPhotoUrl(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Ссылка на музыку (URL MP3)"
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           required
